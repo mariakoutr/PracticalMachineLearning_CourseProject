@@ -1,0 +1,81 @@
+# Practical Machine Learning Course Project 
+
+## Introduction 
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+The data for this project come from this source: http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har, and they consist of one training set and one test set. 
+
+ In this project, the goal is to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants, to predict the manner in which they did the exercise. This is the "classe" variable in the training set. 
+ 
+## Load the data and the libraries 
+Firstly, the training and testing data are downloaded and loaded. 
+```{r} 
+url1 <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+url2 <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+download.file(url = url1, destfile = "training.csv", method = "curl")
+download.file(url = url2, destfile = "testing.csv", method = "curl")
+training <- read.csv("training.csv", header = TRUE, na.strings = c("NA","","#DIV/0!"))
+testing <- read.csv("testing.csv", header = TRUE, na.strings = c("NA","","#DIV/0!"))
+```
+Then, the needed libraries are loaded. 
+```{r}
+library(caret)
+library(randomForest)
+```
+
+# Explore and clean the data 
+```{r}
+names(training)
+str(training)
+```
+
+The training data set is made of 19622 observations on 160 columns. It can be seen that a number of columns have NA values on almost every observation. These columns will be removed, because they will not produce any information. The first seven columns give information about the people who did the test, and also timestamps. They will not be included in our model. These variables will be removed both from the training and the testing set. 
+
+```{r}
+colsRemove <- which(colSums(is.na(training))>0.9*dim(training)[1])
+training2 <- training[,-colsRemove]
+training2 <- training2[,-c(1:7)]
+dim(training2)
+
+testing2 <- testing[,-colsRemove]
+testing2 <- testing2[,-c(1:7)]
+dim(testing2)
+```
+
+The new training and testing sets have 53 variables. The variables with near zero variance are calculated. 
+
+```{r}
+nzv<- nearZeroVar(training2, saveMetrics = FALSE)
+nzv
+```
+
+There are no variables with near zero variance in the new training data set "training2". 
+
+# Split the data
+The training set is splitted in two data sets, to cross validate, before testing on the testing set. The training2 set is splitted in 70% and 30% parts. 
+```{r}
+set.seed(2207)
+inTrain <- createDataPartition(training2$classe, p = 0.7, list = FALSE)
+train1 <- training2[inTrain,]
+train2 <- training2[-inTrain,]
+```
+
+# Build the model 
+The model is trained on the train1 partition of the training set. The random forest method is used primarily. 
+
+```{r}
+set.seed(2207)
+model <- randomForest(classe~., data = train1 )
+pred <- predict(model, train2)
+confusionMatrix(pred, train2$classe)
+```
+It can be seen that the model created with the random forest method has 99.49% accuracy in the prediction of the values of the classe variable of the train2 partition, which is a satisfying. 
+
+Now, the model will be trained on the whole training dataset and the values of classe variable will be predicted using this model. 
+```{r}
+set.seed(2207)
+modelf <- randomForest(classe ~., data = training2)
+predf<- predict(modelf, testing2)
+predf
+```
